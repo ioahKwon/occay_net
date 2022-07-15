@@ -88,6 +88,7 @@ class SpatialGate(nn.Module):
         scale = F.sigmoid(x_out) # broadcasting
         return x * scale
 
+# CBAM Module
 class CBAM(nn.Module):
     def __init__(self, gate_channels, reduction_ratio=16, pool_types=['avg','max'], no_spatial=False):
         super(CBAM, self).__init__()
@@ -96,8 +97,8 @@ class CBAM(nn.Module):
         if not no_spatial:
             self.SpatialGate = SpatialGate() # pixel-wise
 
-        def forward(self, x):
-            x_out = self.ChannelGate(x)
-            if not self.no_spatial:
-                x_out = self.SpatialGate(x_out)
-            return x_out
+    def forward(self, x):
+        x_out = self.ChannelGate(x)
+        if not self.no_spatial:
+            x_out = self.SpatialGate(x_out)
+        return x_out
