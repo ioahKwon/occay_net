@@ -42,5 +42,3 @@ class AdaConv2d(nn.Module):
         x = F.conv2d(x, w_spatial, groups=self.n_groups)
         x = F.conv2d(x, w_pointwise, groups=self.n_groups, bias=bias)
         return x
-
-    
