@@ -6,17 +6,30 @@ from blocks import *
 
 # Decode Module
 class AdaOctConv(nn.Module):
-    def __init__(self, content_embeddings, style_embeddings):
+    def __init__(self, in_channels, out_channels, n_groups, style_channels, kernel_size,
+                 stride, padding, alpha_in, alpha_out, type='normal', use_cbam=True):
         super(AdaOctConv).__init__()
-        self.kernelPredictor = KernelPredictor()
-        self.AdaConv = AdaConv2d()
-        self.AttnOctConv = Attn_OctConv()
+        self.out_channels = out_channels if type == 'last' else in_channels
+
+        self.kernelPredictor = KernelPredictor(in_channels=in_channels,
+                                               out_channels=in_channels,
+                                               n_groups=n_groups,
+                                               style_channels=style_channels,
+                                               kernel_size=kernel_size)
+        self.AdaConv = AdaConv2d(in_channels=in_channels,
+                                 out_channels=out_channels,
+                                 n_groups=n_groups)
+        self.AttnOctConv = Attn_OctConv(in_channels=in_channels,
+                                        out_channels=out_channels,
+                                        kernel_size=kernel_size,
+                                        stride=stride, padding=padding, alpha_in=alpha_in, alpha_out=alpha_out,
+                                        type=type, use_cbam=use_cbam)
 
     def forward(self, content, style):
-        style_v = self.kernelPredictor(style)
-        out = self.AdaConv(content, style_v)
-        out = self.AttnOctConv(out)
-        return out
+        w_spatial, w_pointwise, bias = self.kernelPredictor(style)
+        output = self.AdaConv(content, w_spatial, w_pointwise, bias)
+        output = self.AttnOctConv(output)
+        return output
 
 class KernelPredictor(nn.Module):
     def __init__(self, in_channels, out_channels, n_groups, style_channels, kernel_size):
@@ -30,17 +43,17 @@ class KernelPredictor(nn.Module):
         padding = (kernel_size - 1) / 2
         self.spatial = nn.Conv2d(style_channels,
                                  in_channels * out_channels // n_groups,
-                                 kernel_size = kernel_size,
-                                 padding = (ceil(padding), ceil(padding)),
+                                 kernel_size=kernel_size,
+                                 padding=(ceil(padding), ceil(padding)),
                                  padding_mode='reflect')
         self.pointwise = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1,1)),
+            nn.AdaptiveAvgPool2d((1, 1)),
             nn.Conv2d(style_channels,
                       out_channels * out_channels // n_groups,
                       kernel_size=1)
         )
         self.bias = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1,1)),
+            nn.AdaptiveAvgPool2d((1, 1)),
             nn.Conv2d(style_channels,
                       out_channels,
                       kernel_size=1)
